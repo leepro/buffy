@@ -5,8 +5,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -23,9 +21,8 @@ type ProxyServer struct {
 	Bind string
 	Cfg  *BuffyConfig
 
-	upstreams    []*Upstream
-	endpoints    []*Endpoint
-	tableIDtoMax map[string]int
+	upstreams []*Upstream
+	endpoints []*Endpoint
 
 	mux *http.ServeMux
 
@@ -45,11 +42,10 @@ type Endpoint struct {
 
 func ListenAndServe(cfg *BuffyConfig) (*ProxyServer, error) {
 	ps := &ProxyServer{
-		Cfg:          cfg,
-		Bind:         cfg.ListenHostPort(),
-		ctx:          context.Background(),
-		tableIDtoMax: make(map[string]int),
-		mux:          &http.ServeMux{},
+		Cfg:  cfg,
+		Bind: cfg.ListenHostPort(),
+		ctx:  context.Background(),
+		mux:  &http.ServeMux{},
 	}
 
 	if err := ps.Run(); err != nil {
@@ -118,26 +114,20 @@ func (ps *ProxyServer) CreateUpstreamHandlers() error {
 	return nil
 }
 
-func (ps *ProxyServer) LookupUpstreamWithIds(ids []string) (*UpstreamDef, error) {
+func (ps *ProxyServer) LookupUpstreamWithIds(ids []string) (*Upstream, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
 	for _, u := range ps.upstreams {
 		if u.Def.Id == ids[0] {
-			return u.Def, nil
+			return u, nil
 		}
 	}
 	return nil, errors.New("not found upstream with id: " + ids[0])
 }
 
 func (ps *ProxyServer) RegisterEndpoints() error {
-	// go func() {
-	// 	t := time.NewTicker(1 * time.Second)
-	// 	for {
-	// 		select {
-	// 		case <-t.C:
-	// 			log.Printf("[monitor] %#v\n", ps.tableIDtoMax)
-	// 		}
-	// 	}
-	// }()
-
 	for _, epdef := range ps.Cfg.Endpoints {
 		endp, err := NewEndpoint(epdef)
 		if err != nil {
@@ -145,91 +135,16 @@ func (ps *ProxyServer) RegisterEndpoints() error {
 		}
 		ps.endpoints = append(ps.endpoints, endp)
 
-		ep := epdef
-		var _proxy *httputil.ReverseProxy
-		switch ep.Type {
-		case TypeProxy:
-			upstreamURL, err := ps.LookupUpstreamWithIds(epdef.Upstream)
-			if err != nil {
-				return err
-			}
-
-			upURL, err := url.Parse(upstreamURL.Endpoint)
-			if err != nil {
-				return err
-			}
-
-			_proxy = httputil.NewSingleHostReverseProxy(upURL)
-			_proxy.Transport = &MyTransport{}
+		upstream, err := ps.LookupUpstreamWithIds(epdef.Upstream)
+		if err != nil {
+			return err
 		}
 
-		ps.mux.HandleFunc(ep.Path, func(w http.ResponseWriter, r *http.Request) {
-			log.Printf("[endpoint:%s:'%s'] %s\n", ep.Id, ep.Desc, r.URL)
-
-			switch ep.Type {
-			case TypeProxy:
-				if ps.IsReachedMaxQueue(ep.Id, ep.MaxQueue) {
-					content, err := ep.GetResponseWithName(NameHitMaxQueue)
-					if err != nil {
-						w.WriteHeader(http.StatusNotFound)
-						w.Write([]byte("not found a response body for code 'hit_max_queue'"))
-						return
-					}
-
-					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(content))
-					return
-				} else {
-					// forward the request with the replacement of hostname
-					ps.In(ep.Id)
-					r.Host = r.URL.Host
-					_proxy.ServeHTTP(w, r)
-					ps.Out(ep.Id)
-				}
-
-			case TypeRespond:
-				content, err := ep.GetResponseWithName(NameOK)
-				if err != nil {
-					w.WriteHeader(http.StatusNotFound)
-					w.Write([]byte("not found a response body for code 200"))
-					return
-				}
-
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(content))
-			}
-		})
+		if err := endp.Handler.RegisterRoute(ps.mux, upstream); err != nil {
+			return err
+		}
 	}
 	return nil
-}
-
-func (ps *ProxyServer) IsReachedMaxQueue(id string, max int) bool {
-	ps.Lock()
-	defer ps.Unlock()
-
-	if n, ok := ps.tableIDtoMax[id]; ok {
-		if n < max {
-			return false
-		} else {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (ps *ProxyServer) In(id string) {
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.tableIDtoMax[id]++
-}
-
-func (ps *ProxyServer) Out(id string) {
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.tableIDtoMax[id]--
 }
 
 func (ps *ProxyServer) Wait() {

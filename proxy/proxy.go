@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -42,6 +43,16 @@ type EndpointDef struct {
 	MaxQueue int                   `json:"max_queue" yaml:"max_queue"`
 	Methods  []string              `json:"methods"   yaml:"methods"`
 	Response []UpstreamResponseDef `json:"response"  yaml:"response"`
+}
+
+func (ed *EndpointDef) GetResponseWithName(name string) (string, error) {
+	for _, e := range ed.Response {
+		if e.Name == name {
+			return e.Content, nil
+		}
+	}
+
+	return "", errors.New("not found name")
 }
 
 func ReadConfigFile(filename string) (*BuffyConfig, error) {

@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	MaxWaitBetweenTrial = 2
+	MaxWaitBetweenTrial = 1
 )
 
 type MyTransport struct {
+	timeout int
 }
 
 func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -36,19 +37,38 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
-	for i := 0; i < 100; i++ {
+	retries := 0
+	st := time.Now()
+
+	for {
 		response, err = transport.RoundTrip(request)
-		log.Printf("[MyTransport/RoundTrip/%d] res=%#v err=%v\n", i, response, err)
 		if err == nil {
 			break
 		}
+
+		log.Printf("[MyTransport/RoundTrip/%d] err=%v\n", retries, err)
 
 		if strings.Contains(err.Error(), "context canceled") {
 			break
 		}
 
+		// waiting timeout
+		if time.Since(st).Seconds() >= float64(t.timeout) {
+			break
+		}
+
 		time.Sleep(MaxWaitBetweenTrial * time.Second)
+		retries++
 	}
+
+	// TODO: create fake response
+	//
+	// if response == nil {
+	// 	response = &http.Response{
+	// 		StatusCode: 404,
+	// 	}
+	// 	err = nil
+	// }
 
 	return response, err
 }
