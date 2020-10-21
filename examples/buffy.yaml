@@ -1,0 +1,66 @@
+version: 0.1
+
+buffy:
+  port: 7000
+  bind: 0.0.0.0
+
+upstreams:
+  - id: service1
+    endpoint: http://localhost:9091
+    interval: 100 msec
+    
+  - id: service2
+    endpoint: http://localhost:9092
+    interval: 100 msec
+
+endpoints:
+  - id: example1
+    desc: buffy endpoint
+    path: /api/endpoint1/index.html
+    type: proxy
+    upstream:
+      - service1
+    timeout: 60
+    max_queue: 3
+    methods:
+      - GET
+    response:
+      - name: hit_timeout
+        content: >
+          { 
+            "status": "timeout",
+            "desc": "timeout"
+          }
+      - name: hit_max_queue
+        content: >
+          { 
+            "status": "not enough resource",
+            "max": 40
+          }
+  - id: example2
+    desc: resource pool
+    path: /api/endpoint2
+    type: respond
+    methods:
+      - GET
+    response:
+      - name: 200
+        content: >
+          { "status": "ok", "desc": "example2" }
+      - name: 404
+        content: >
+          { "status": "not found", "desc": "example2" }          
+
+  - id: example3
+    desc: ping
+    path: /api/ping
+    type: respond
+    methods:
+      - GET
+    response:
+      - name: 200
+        content: >
+          { "status": "pong", "desc": "example3: ping/pong" }
+      - name: 404
+        content: >
+          { "status": "not found", "desc": "example3: ping/pong" }
