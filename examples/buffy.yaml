@@ -1,17 +1,22 @@
 version: 0.1
 
 buffy:
-  port: 7000
-  bind: 0.0.0.0
+  listen:
+    port: 7000
+    bind: 0.0.0.0
+  admin:
+    path: /_admin
+    port: 7001
+    bind: 0.0.0.0
 
 upstreams:
   - id: service1
     endpoint: http://localhost:9091
-    interval: 100 msec
+    interval: 1000 # msec
     
   - id: service2
     endpoint: http://localhost:9092
-    interval: 100 msec
+    interval: 1000 # msec
 
 endpoints:
   - id: example1
@@ -20,6 +25,7 @@ endpoints:
     type: proxy
     upstream:
       - service1
+    proxy_mode: store_and_forward
     timeout: 20
     max_queue: 3
     methods:

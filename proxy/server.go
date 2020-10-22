@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 const (
@@ -18,44 +20,59 @@ const (
 )
 
 type ProxyServer struct {
-	Bind string
-	Cfg  *BuffyConfig
+	Cfg *BuffyConfig
+
+	ServerBindAddr string
+	AdminBindAddr  string
 
 	upstreams []*Upstream
 	endpoints []*Endpoint
 
 	mux *http.ServeMux
 
-	ctx context.Context
+	ctx       context.Context
+	ctxCancel context.CancelFunc
 	sync.Mutex
 }
 
 type Upstream struct {
-	Def     *UpstreamDef
-	Handler *UpstreamHandler
+	Id       string           `json:"id"`
+	Endpoint string           `json:"endpoint"`
+	Def      *UpstreamDef     `json:"-"`
+	Handler  *UpstreamHandler `json:"handler"`
 }
 
 type Endpoint struct {
-	Def     *EndpointDef
-	Handler *EndpointHandler
+	Id      string           `json:"id"`
+	Path    string           `json:"path"`
+	Def     *EndpointDef     `json:"-"`
+	Handler *EndpointHandler `json:"handler"`
 }
 
 func ListenAndServe(cfg *BuffyConfig) (*ProxyServer, error) {
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	ps := &ProxyServer{
-		Cfg:  cfg,
-		Bind: cfg.ListenHostPort(),
-		ctx:  context.Background(),
-		mux:  &http.ServeMux{},
+		Cfg:            cfg,
+		ServerBindAddr: cfg.ServerListenHostPort(),
+		AdminBindAddr:  cfg.AdminListenHostPort(),
+		ctx:            ctx,
+		ctxCancel:      ctxCancel,
+		mux:            &http.ServeMux{},
 	}
 
-	if err := ps.Run(); err != nil {
+	if err := ps.RunServer(); err != nil {
+		return nil, err
+	}
+
+	if err := ps.RunAdmin(); err != nil {
 		return nil, err
 	}
 
 	return ps, nil
 }
 
-func (ps *ProxyServer) Run() error {
+func (ps *ProxyServer) RunServer() error {
 	// create upstream pipelines
 	if err := ps.CreateUpstreamHandlers(); err != nil {
 		return err
@@ -69,8 +86,38 @@ func (ps *ProxyServer) Run() error {
 	ps.mux.HandleFunc("/", ps.ProxyHandle)
 
 	srv := &http.Server{
-		Addr:    ps.Bind,
+		Addr:    ps.ServerBindAddr,
 		Handler: ps.mux,
+	}
+
+	go func() {
+		select {
+		case <-ps.ctx.Done():
+		}
+
+		if err := srv.Shutdown(ps.ctx); err != nil {
+			log.Printf("ProxyServer shutdown: err=%s\n", err)
+			return
+		}
+	}()
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			log.Printf("ProxyServer shutdown: err=%s\n", err)
+		}
+	}()
+
+	return nil
+}
+
+func (ps *ProxyServer) RunAdmin() error {
+	mux := http.NewServeMux()
+	mux.HandleFunc(ps.Cfg.Server.Admin.Path+"/config", ps.AdminHandleConfig)
+	mux.HandleFunc(ps.Cfg.Server.Admin.Path+"/status", ps.AdminHandleStatus)
+
+	srv := &http.Server{
+		Addr:    ps.AdminBindAddr,
+		Handler: mux,
 	}
 
 	go func() {
@@ -98,13 +145,33 @@ func (ps *ProxyServer) ProxyHandle(w http.ResponseWriter, r *http.Request) {
 	ps.serveEndpoints(w, r)
 }
 
-func (ps *ProxyServer) serveEndpoints(w http.ResponseWriter, r *http.Request) {
+func (ps *ProxyServer) AdminHandleConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	bs, _ := json.Marshal(ps.Cfg)
+	w.Write(bs)
+}
 
+func (ps *ProxyServer) AdminHandleStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	ps.Lock()
+	ret := map[string]interface{}{
+		"upstreams": ps.upstreams,
+		"endpoints": ps.endpoints,
+	}
+	bs, _ := json.Marshal(ret)
+	w.Write(bs)
+	ps.Unlock()
+}
+
+func (ps *ProxyServer) serveEndpoints(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+	w.Write([]byte("{ \"status\": \"not implemented\"}"))
 }
 
 func (ps *ProxyServer) CreateUpstreamHandlers() error {
 	for _, u := range ps.Cfg.Upstreams {
-		up, err := NewUpstream(u)
+		up, err := NewUpstream(ps.ctx, u)
 		if err != nil {
 			return err
 		}
@@ -129,7 +196,7 @@ func (ps *ProxyServer) LookupUpstreamWithIds(ids []string) (*Upstream, error) {
 
 func (ps *ProxyServer) RegisterEndpoints() error {
 	for _, epdef := range ps.Cfg.Endpoints {
-		endp, err := NewEndpoint(epdef)
+		endp, err := NewEndpoint(ps.ctx, epdef)
 		if err != nil {
 			return err
 		}
@@ -151,11 +218,15 @@ func (ps *ProxyServer) Wait() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	log.Printf("Ready... %s\n", ps.Cfg.ListenHostPort())
+	log.Printf("Ready... server: %s\n", ps.Cfg.ServerListenHostPort())
+	log.Printf("Ready...  admin: %s\n", ps.Cfg.AdminListenHostPort())
 
 	select {
 	case <-sigs:
+		ps.ctxCancel()
 	}
+
+	time.Sleep(2 * time.Second)
 
 	log.Printf("Bye...\n")
 }

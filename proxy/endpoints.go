@@ -1,11 +1,10 @@
 package proxy
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"sync"
 	"sync/atomic"
 )
@@ -15,24 +14,41 @@ const (
 	TypeProxy   = "proxy"
 )
 
+type EndpointDef struct {
+	Id        string                `json:"id"         yaml:"id"`
+	Desc      string                `json:"desc"       yaml:"desc"`
+	Path      string                `json:"path"       yaml:"path"`
+	Type      string                `json:"type"       yaml:"type"`
+	Upstream  []string              `json:"upstream"   yaml:"upstream"`
+	ProxyMode string                `json:"proxy_mode" yaml:"proxy_mode"`
+	Timeout   int                   `json:"timeout"    yaml:"timeout"`
+	MaxQueue  int                   `json:"max_queue"  yaml:"max_queue"`
+	Methods   []string              `json:"methods"    yaml:"methods"`
+	Response  []UpstreamResponseDef `json:"response"   yaml:"response"`
+}
+
 type EndpointHandler struct {
+	ctx      context.Context
 	def      *EndpointDef
 	upstream *Upstream
 
-	maxConn int
-	curConn int
-	counter uint32
+	MaxConn int    `json:"maxConn"`
+	CurConn int    `json:"curConn"`
+	Counter uint32 `json:"counter"`
 
 	sync.Mutex
 }
 
-func NewEndpoint(e EndpointDef) (*Endpoint, error) {
+func NewEndpoint(ctx context.Context, e EndpointDef) (*Endpoint, error) {
 	ep := &Endpoint{
-		Def: &e,
+		Id:   e.Id,
+		Path: e.Path,
+		Def:  &e,
 		Handler: &EndpointHandler{
+			ctx:      ctx,
 			def:      &e,
-			maxConn:  e.MaxQueue,
-			curConn:  0,
+			MaxConn:  e.MaxQueue,
+			CurConn:  0,
 			upstream: nil,
 		},
 	}
@@ -41,7 +57,7 @@ func NewEndpoint(e EndpointDef) (*Endpoint, error) {
 
 func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream) error {
 	epf := eh.def
-	var _proxy *httputil.ReverseProxy
+	var _handle http.HandlerFunc
 
 	switch epf.Type {
 	case TypeProxy:
@@ -49,48 +65,49 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 			return errors.New("must provide 'upstream'")
 		}
 
-		upURL, err := url.Parse(upstream.Def.Endpoint)
-		if err != nil {
+		// attach the upstream
+		eh.upstream = upstream
+		if err := eh.upstream.CreateReverseProxy(epf.Timeout); err != nil {
 			return err
 		}
 
-		_proxy = httputil.NewSingleHostReverseProxy(upURL)
-		_proxy.Transport = &MyTransport{
-			timeout: epf.Timeout,
-		}
-	}
+		_handle = func(w http.ResponseWriter, r *http.Request) {
+			log.Printf("[endpoint(%d):%s:'%s'] %s\n", atomic.AddUint32(&eh.Counter, 1), epf.Id, epf.Desc, r.URL)
 
-	_handle := func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[endpoint(%d):%s:'%s'] %s\n", atomic.AddUint32(&eh.counter, 1), epf.Id, epf.Desc, r.URL)
+			var content string
+			var err error
 
-		switch epf.Type {
-		case TypeProxy:
 			if eh.IsReachedMaxQueue() {
-				content, err := epf.GetResponseWithName(NameHitMaxQueue)
+				content, err = epf.GetResponseWithName(NameHitMaxQueue)
 				if err != nil {
-					w.WriteHeader(http.StatusNotFound)
-					w.Write([]byte("not found a response body for code 'hit_max_queue'"))
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte("buffy[yaml]: not found a response body for code 'hit_max_queue'"))
 					return
 				}
-
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(content))
-				return
 			} else {
 				// forward the request with the replacement of hostname
 				eh.In()
-				{
-					r.Host = r.URL.Host
-					_proxy.ServeHTTP(w, r)
-				}
+				r.Host = r.URL.Host
+				eh.upstream.Forward(w, r)
 				eh.Out()
+				return
 			}
 
-		case TypeRespond:
-			content, err := epf.GetResponseWithName(NameOK)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(content))
+		}
+
+	case TypeRespond:
+		_handle = func(w http.ResponseWriter, r *http.Request) {
+			log.Printf("[endpoint(%d):%s:'%s'] %s\n", atomic.AddUint32(&eh.Counter, 1), epf.Id, epf.Desc, r.URL)
+
+			var content string
+			var err error
+
+			content, err = epf.GetResponseWithName(NameOK)
 			if err != nil {
-				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte("not found a response body for code 200"))
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("buffy[yaml]: not found a response body for code 200"))
 				return
 			}
 
@@ -108,21 +125,21 @@ func (eh *EndpointHandler) In() {
 	eh.Lock()
 	defer eh.Unlock()
 
-	eh.curConn++
+	eh.CurConn++
 }
 
 func (eh *EndpointHandler) Out() {
 	eh.Lock()
 	defer eh.Unlock()
 
-	eh.curConn--
+	eh.CurConn--
 }
 
 func (eh *EndpointHandler) IsReachedMaxQueue() bool {
 	eh.Lock()
 	defer eh.Unlock()
 
-	if eh.curConn < eh.maxConn {
+	if eh.CurConn < eh.MaxConn {
 		return false
 	}
 

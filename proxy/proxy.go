@@ -18,31 +18,19 @@ type BuffyConfig struct {
 }
 
 type BuffyServerDef struct {
+	Listen BuffyServerListen `json:"listen" yaml:"listen"`
+	Admin  BuffyServerAdmin  `json:"admin"  yaml:"admin"`
+}
+
+type BuffyServerListen struct {
 	Bind string `json:"bind" yaml:"bind"`
 	Port int    `json:"port" yaml:"port"`
 }
 
-type UpstreamDef struct {
-	Id       string `json:"id"       yaml:"id"`
-	Endpoint string `json:"endpoint" yaml:"endpoint"`
-}
-
-type UpstreamResponseDef struct {
-	Name     string `json:"name"     yaml:"name"`
-	Content  string `json:"content"  yaml:"content"`
-	Interval string `json:"interval" yaml:"interval"`
-}
-
-type EndpointDef struct {
-	Id       string                `json:"id"        yaml:"id"`
-	Desc     string                `json:"desc"      yaml:"desc"`
-	Path     string                `json:"path"      yaml:"path"`
-	Type     string                `json:"type"      yaml:"type"`
-	Upstream []string              `json:"upstream"  yaml:"upstream"`
-	Timeout  int                   `json:"timeout"   yaml:"timeout"`
-	MaxQueue int                   `json:"max_queue" yaml:"max_queue"`
-	Methods  []string              `json:"methods"   yaml:"methods"`
-	Response []UpstreamResponseDef `json:"response"  yaml:"response"`
+type BuffyServerAdmin struct {
+	Path string `json:"path" yaml:"path"`
+	Bind string `json:"bind" yaml:"bind"`
+	Port int    `json:"port" yaml:"port"`
 }
 
 func (ed *EndpointDef) GetResponseWithName(name string) (string, error) {
@@ -88,6 +76,10 @@ func (cfg *BuffyConfig) ShowInfo() {
 	log.Println()
 }
 
-func (cfg *BuffyConfig) ListenHostPort() string {
-	return fmt.Sprintf("%s:%d", cfg.Server.Bind, cfg.Server.Port)
+func (cfg *BuffyConfig) ServerListenHostPort() string {
+	return fmt.Sprintf("%s:%d", cfg.Server.Listen.Bind, cfg.Server.Listen.Port)
+}
+
+func (cfg *BuffyConfig) AdminListenHostPort() string {
+	return fmt.Sprintf("%s:%d", cfg.Server.Admin.Bind, cfg.Server.Admin.Port)
 }
