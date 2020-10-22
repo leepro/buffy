@@ -28,9 +28,11 @@ type BuffyServerListen struct {
 }
 
 type BuffyServerAdmin struct {
-	Path string `json:"path" yaml:"path"`
-	Bind string `json:"bind" yaml:"bind"`
-	Port int    `json:"port" yaml:"port"`
+	Path    string `json:"path"    yaml:"path"`
+	Bind    string `json:"bind"    yaml:"bind"`
+	Port    int    `json:"port"    yaml:"port"`
+	Webhook string `json:"webhook" yaml:"webhook"`
+	Slack   string `json:"slack"   yaml:"slack"`
 }
 
 func (ed *EndpointDef) GetResponseWithName(name string) (string, error) {

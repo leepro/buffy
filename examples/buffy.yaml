@@ -8,6 +8,9 @@ buffy:
     path: /_admin
     port: 7001
     bind: 0.0.0.0
+    webhook: http://localhost:9999/hook/buffy
+    slack: 
+
 
 upstreams:
   - id: service1
