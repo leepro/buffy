@@ -24,8 +24,10 @@ type ProxyServer struct {
 	ServerBindAddr string
 	AdminBindAddr  string
 
-	upstreams []*Upstream
-	endpoints []*Endpoint
+	upstreams     []*Upstream
+	endpoints     []*Endpoint
+	notifyManager *NotifyManager
+	notifyC       chan string
 
 	mux *http.ServeMux
 
@@ -58,6 +60,10 @@ func ListenAndServe(cfg *BuffyConfig) (*ProxyServer, error) {
 		ctx:            ctx,
 		ctxCancel:      ctxCancel,
 		mux:            &http.ServeMux{},
+	}
+
+	if err := ps.RunNotifier(); err != nil {
+		return nil, err
 	}
 
 	if err := ps.RunServer(); err != nil {
@@ -139,6 +145,12 @@ func (ps *ProxyServer) RunAdmin() error {
 	return nil
 }
 
+func (ps *ProxyServer) RunNotifier() error {
+	ps.notifyManager = NewNotifyManager(ps.ctx, &ps.Cfg.Server.Admin.Notify)
+	ps.notifyC = ps.notifyManager.C
+	return nil
+}
+
 func (ps *ProxyServer) ProxyHandle(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[ProxyHandle] url=[%s]\n", r.URL)
 	ps.serveEndpoints(w, r)
@@ -151,7 +163,7 @@ func (ps *ProxyServer) serveEndpoints(w http.ResponseWriter, r *http.Request) {
 
 func (ps *ProxyServer) CreateUpstreamHandlers() error {
 	for _, u := range ps.Cfg.Upstreams {
-		up, err := NewUpstream(ps.ctx, u)
+		up, err := NewUpstream(ps.ctx, u, ps.notifyC)
 		if err != nil {
 			return err
 		}
@@ -176,7 +188,7 @@ func (ps *ProxyServer) LookupUpstreamWithIds(ids []string) (*Upstream, error) {
 
 func (ps *ProxyServer) RegisterEndpoints() error {
 	for _, epdef := range ps.Cfg.Endpoints {
-		endp, err := NewEndpoint(ps.ctx, epdef)
+		endp, err := NewEndpoint(ps.ctx, epdef, ps.notifyC)
 		if err != nil {
 			return err
 		}

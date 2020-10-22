@@ -6,31 +6,36 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
 
 type BuffyConfig struct {
-	Version   string         `json:"version"   yaml:"version"`
-	Server    BuffyServerDef `json:"buffy"     yaml:"buffy"`
-	Upstreams []UpstreamDef  `json:"upstreams" yaml:"upstreams"`
-	Endpoints []EndpointDef  `json:"endpoints" yaml:"endpoints"`
+	Version   string        `json:"version"   yaml:"version"`
+	Server    ServerDef     `json:"buffy"     yaml:"buffy"`
+	Upstreams []UpstreamDef `json:"upstreams" yaml:"upstreams"`
+	Endpoints []EndpointDef `json:"endpoints" yaml:"endpoints"`
 }
 
-type BuffyServerDef struct {
-	Listen BuffyServerListen `json:"listen" yaml:"listen"`
-	Admin  BuffyServerAdmin  `json:"admin"  yaml:"admin"`
+type ServerDef struct {
+	Listen ServerListen `json:"listen" yaml:"listen"`
+	Admin  ServerAdmin  `json:"admin"  yaml:"admin"`
 }
 
-type BuffyServerListen struct {
+type ServerListen struct {
 	Bind string `json:"bind" yaml:"bind"`
 	Port int    `json:"port" yaml:"port"`
 }
 
-type BuffyServerAdmin struct {
-	Path    string `json:"path"    yaml:"path"`
-	Bind    string `json:"bind"    yaml:"bind"`
-	Port    int    `json:"port"    yaml:"port"`
+type ServerAdmin struct {
+	Path   string      `json:"path"    yaml:"path"`
+	Bind   string      `json:"bind"    yaml:"bind"`
+	Port   int         `json:"port"    yaml:"port"`
+	Notify AdminNotify `json:"notify"  yaml:"notify"`
+}
+type AdminNotify struct {
 	Webhook string `json:"webhook" yaml:"webhook"`
 	Slack   string `json:"slack"   yaml:"slack"`
 }
@@ -38,11 +43,27 @@ type BuffyServerAdmin struct {
 func (ed *EndpointDef) GetResponseWithName(name string) (string, error) {
 	for _, e := range ed.Response {
 		if e.Name == name {
-			return e.Content, nil
+			if strings.HasPrefix(e.Content, "file://") {
+				content, err := ed.ReadContentFile(e.Content)
+				return content, err
+			} else {
+				return e.Content, nil
+			}
 		}
 	}
 
 	return "", errors.New("not found name")
+}
+
+func (ed *EndpointDef) ReadContentFile(filename string) (string, error) {
+	u, err := url.ParseRequestURI(filename)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Printf("url:%v\nscheme:%v host:%v Path:%v\n\n", u, u.Scheme, u.Host, u.Path)
+	content, err := ioutil.ReadFile(u.Path)
+	return string(content), err
 }
 
 func ReadConfigFile(filename string) (*BuffyConfig, error) {
@@ -65,6 +86,10 @@ func (cfg *BuffyConfig) ShowInfo() {
 	log.Printf("* Buffy 1.0\n")
 	log.Println()
 	log.Printf("- version   : %s\n", cfg.Version)
+	log.Printf("- server    : %s\n", cfg.Server.Listen.Bind)
+	log.Printf("- admin     : %s\n", cfg.Server.Admin.Bind)
+	log.Printf("- webhook   : '%s'\n", cfg.Server.Admin.Notify.Webhook)
+	log.Printf("- slack     : '%s'\n", cfg.Server.Admin.Notify.Slack)
 	log.Printf("- upstreams : %d\n", len(cfg.Upstreams))
 	for _, up := range cfg.Upstreams {
 		log.Printf("  - %s: %s\n", up.Id, up.Endpoint)

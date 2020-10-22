@@ -15,6 +15,20 @@ const (
 	MaxWaitBetweenTrial = 1
 )
 
+var proxyTransport = http.Transport{
+	Proxy: http.ProxyFromEnvironment,
+	DialContext: (&net.Dialer{
+		Timeout:   5 * time.Second,
+		KeepAlive: 200 * time.Second,
+		DualStack: true,
+	}).DialContext,
+	ForceAttemptHTTP2:     true,
+	MaxIdleConns:          100,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+}
+
 type MyTransport struct {
 	timeout int
 }
@@ -23,25 +37,11 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	var response *http.Response
 	var err error
 
-	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   5 * time.Second,
-			KeepAlive: 200 * time.Second,
-			DualStack: true,
-		}).DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-
 	retries := 0
 	st := time.Now()
 
 	for {
-		response, err = transport.RoundTrip(request)
+		response, err = proxyTransport.RoundTrip(request)
 		if err == nil {
 			break
 		}

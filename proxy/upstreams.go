@@ -37,17 +37,19 @@ type UpstreamHandler struct {
 	ctx      context.Context
 	def      *UpstreamDef
 	revproxy *httputil.ReverseProxy
+	notiC    chan string
 
 	Status int `json:"status"`
 }
 
-func NewUpstream(ctx context.Context, u UpstreamDef) (*Upstream, error) {
+func NewUpstream(ctx context.Context, u UpstreamDef, notiC chan string) (*Upstream, error) {
 	up := &Upstream{
 		Id:       u.Id,
 		Endpoint: u.Endpoint,
 		Def:      &u,
 		Handler: &UpstreamHandler{
 			ctx:    ctx,
+			notiC:  notiC,
 			def:    &u,
 			Status: StatusNone,
 		},
@@ -83,6 +85,7 @@ func (us *UpstreamHandler) run() {
 			if err != nil {
 				if us.Status == StatusNone || us.Status == StatusAvailable {
 					log.Printf("[upstream:%s/%d] Switch to 'Unavailable'\n", us.def.Id, cnt)
+					us.notify(`{"status":"change". "desc":"upstream [` + us.def.Id + `] unavailable"}`)
 				}
 				us.Status = StatusUnavailable
 				continue
@@ -91,10 +94,17 @@ func (us *UpstreamHandler) run() {
 
 			if us.Status == StatusNone || us.Status == StatusUnavailable {
 				log.Printf("[upstream:%s/%d] Switch to 'Available'\n", us.def.Id, cnt)
+				us.notify(`{"status":"change". "desc":"upstream [` + us.def.Id + `] available"}`)
 			}
 
 			us.Status = StatusAvailable
 		}
+	}
+}
+
+func (us *UpstreamHandler) notify(msg string) {
+	if len(us.notiC) < cap(us.notiC) {
+		us.notiC <- msg
 	}
 }
 

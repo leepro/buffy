@@ -8,18 +8,18 @@ buffy:
     path: /_admin
     port: 7001
     bind: 0.0.0.0
-    webhook: http://localhost:9999/hook/buffy
-    slack: 
-
+    notify:
+      webhook: http://localhost:6666
+      slack: 
 
 upstreams:
   - id: service1
     endpoint: http://localhost:9091
-    interval: 1000 # msec
+    interval: 2000 # msec
     
   - id: service2
     endpoint: http://localhost:9092
-    interval: 1000 # msec
+    interval: 2000 # msec
 
 endpoints:
   - id: example1
@@ -36,7 +36,7 @@ endpoints:
     response:
       - name: hit_timeout
         content: >
-          { 
+          {
             "status": "timeout",
             "desc": "timeout"
           }
@@ -73,3 +73,13 @@ endpoints:
       - name: 404
         content: >
           { "status": "not found", "desc": "example3: ping/pong" }
+
+  - id: example4
+    desc: file content
+    path: /api/file
+    type: respond
+    methods:
+      - GET
+    response:
+      - name: 200
+        content: file:///file.json

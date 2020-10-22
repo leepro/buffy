@@ -31,6 +31,7 @@ type EndpointHandler struct {
 	ctx      context.Context
 	def      *EndpointDef
 	upstream *Upstream
+	notiC    chan string
 
 	MaxConn int    `json:"maxConn"`
 	CurConn int    `json:"curConn"`
@@ -39,13 +40,14 @@ type EndpointHandler struct {
 	sync.Mutex
 }
 
-func NewEndpoint(ctx context.Context, e EndpointDef) (*Endpoint, error) {
+func NewEndpoint(ctx context.Context, e EndpointDef, notiC chan string) (*Endpoint, error) {
 	ep := &Endpoint{
 		Id:   e.Id,
 		Path: e.Path,
 		Def:  &e,
 		Handler: &EndpointHandler{
 			ctx:      ctx,
+			notiC:    notiC,
 			def:      &e,
 			MaxConn:  e.MaxQueue,
 			CurConn:  0,
@@ -81,7 +83,7 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 				content, err = epf.GetResponseWithName(NameHitMaxQueue)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
-					w.Write([]byte("buffy[yaml]: not found a response body for code 'hit_max_queue'"))
+					w.Write([]byte("buffy[yaml]: not found a response body for code 'hit_max_queue' : " + err.Error()))
 					return
 				}
 			} else {
@@ -107,7 +109,7 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 			content, err = epf.GetResponseWithName(NameOK)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("buffy[yaml]: not found a response body for code 200"))
+				w.Write([]byte("buffy[yaml]: not found a response body for code 200 : " + err.Error()))
 				return
 			}
 
@@ -119,6 +121,12 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 	mux.HandleFunc(epf.Path, _handle)
 
 	return nil
+}
+
+func (eh *EndpointHandler) notify(msg string) {
+	if len(eh.notiC) < cap(eh.notiC) {
+		eh.notiC <- msg
+	}
 }
 
 func (eh *EndpointHandler) In() {

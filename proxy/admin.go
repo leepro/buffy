@@ -16,6 +16,7 @@ func (ps *ProxyServer) AdminHandleStatus(w http.ResponseWriter, r *http.Request)
 
 	ps.Lock()
 	ret := map[string]interface{}{
+		"server":    ps.Cfg.Server,
 		"upstreams": ps.upstreams,
 		"endpoints": ps.endpoints,
 	}
