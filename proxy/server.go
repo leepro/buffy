@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -143,25 +142,6 @@ func (ps *ProxyServer) RunAdmin() error {
 func (ps *ProxyServer) ProxyHandle(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[ProxyHandle] url=[%s]\n", r.URL)
 	ps.serveEndpoints(w, r)
-}
-
-func (ps *ProxyServer) AdminHandleConfig(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-	bs, _ := json.Marshal(ps.Cfg)
-	w.Write(bs)
-}
-
-func (ps *ProxyServer) AdminHandleStatus(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-
-	ps.Lock()
-	ret := map[string]interface{}{
-		"upstreams": ps.upstreams,
-		"endpoints": ps.endpoints,
-	}
-	bs, _ := json.Marshal(ret)
-	w.Write(bs)
-	ps.Unlock()
 }
 
 func (ps *ProxyServer) serveEndpoints(w http.ResponseWriter, r *http.Request) {
