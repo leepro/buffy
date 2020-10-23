@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    name: Go Build    
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup go
+        uses: actions/setup-go@v1
+        with:
+          go-version: '1.15.3'
+
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)          
+
+      - name: Building app (linux)
+        run: |
+          GOARCH=amd64 GOOS=linux  go build -o ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64  main.go
+          gzip --keep ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64
+      - name: Building app (darwin)
+        run: |
+          GOARCH=amd64 GOOS=darwin go build -o ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64 main.go
+          gzip --keep ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64          
+      - name: Generating License File
+        run: |
+          wget https://github.com/mitchellh/golicense/releases/download/v0.2.0/golicense_0.2.0_linux_x86_64.tar.gz
+          tar xvfz ./golicense_0.2.0_linux_x86_64.tar.gz
+          GITHUB_TOKEN=${{ secrets.TOKEN }} ./golicense ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64 | uniq -c > ./license.txt
+      - name: Updating License File
+        run: |          
+          git config --local user.email "leepro@gmail.com"
+          git config --local user.name "leepro"
+          git config commit.gpgsign false
+          git add ./license.txt
+          git commit -m "[auto] add license file"
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.TOKEN }}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset 1
+        id: upload-release-asset1 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64
+          asset_name: buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64.gzip
+          asset_content_type: application/zip        
+
+      - name: Upload Release Asset 2
+        id: upload-release-asset2 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64
+          asset_name: buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64.gzip
+          asset_content_type: application/zip        
+
+      - name: Upload Release Asset 3
+        id: upload-release-asset3 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./license.txt
+          asset_name: license.txt
+          asset_content_type: application/zip           
