@@ -28,22 +28,22 @@ jobs:
         run: |
           GOARCH=amd64 GOOS=darwin go build -o ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64 main.go
           gzip --keep ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64          
-      - name: Generating License File
-        run: |
-          wget https://github.com/mitchellh/golicense/releases/download/v0.2.0/golicense_0.2.0_linux_x86_64.tar.gz
-          tar xvfz ./golicense_0.2.0_linux_x86_64.tar.gz
-          GITHUB_TOKEN=${{ secrets.TOKEN }} ./golicense ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64 | uniq -c > ./license.txt
-      - name: Updating License File
-        run: |          
-          git config --local user.email "leepro@gmail.com"
-          git config --local user.name "leepro"
-          git config commit.gpgsign false
-          git add ./license.txt
-          git commit -m "[auto] add license file"
-      - name: Push changes
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.TOKEN }}
+      # - name: Generating License File
+      #   run: |
+      #     wget https://github.com/mitchellh/golicense/releases/download/v0.2.0/golicense_0.2.0_linux_x86_64.tar.gz
+      #     tar xvfz ./golicense_0.2.0_linux_x86_64.tar.gz
+      #     GITHUB_TOKEN=${{ secrets.TOKEN }} ./golicense ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64 | uniq -c > ./license.txt
+      # - name: Updating License File
+      #   run: |          
+      #     git config --local user.email "leepro@gmail.com"
+      #     git config --local user.name "leepro"
+      #     git config commit.gpgsign false
+      #     git add ./license.txt
+      #     git commit -m "[auto] add license file"
+      # - name: Push changes
+      #   uses: ad-m/github-push-action@master
+      #   with:
+      #     github_token: ${{ secrets.TOKEN }}
 
       - name: Create Release
         id: create_release
