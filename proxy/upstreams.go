@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -19,6 +20,11 @@ const (
 const (
 	DefaultIntervalPing = 2 * time.Second
 	TimeoutTCPDialCheck = 1 * time.Second
+)
+
+const (
+	ProxyModeStoreAndForward = "store_and_forward"
+	ProxyModeBypass          = "bypass"
 )
 
 type UpstreamDef struct {
@@ -102,14 +108,21 @@ func (us *UpstreamHandler) notify(msg string) {
 	}
 }
 
-func (up *Upstream) CreateReverseProxy(timeout int) error {
+func (up *Upstream) CreateReverseProxy(mode string, timeout int) error {
 	upURL, err := url.Parse(up.Def.Endpoint)
 	if err != nil {
 		return err
 	}
 
+	switch mode {
+	case ProxyModeStoreAndForward:
+	case ProxyModeBypass:
+	default:
+		return errors.New("invalid proxy mode")
+	}
+
 	up.Handler.revproxy = httputil.NewSingleHostReverseProxy(upURL)
-	up.Handler.revproxy.Transport = &MyTransport{timeout: timeout}
+	up.Handler.revproxy.Transport = &MyTransport{mode: mode, timeout: timeout}
 
 	return nil
 }

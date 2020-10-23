@@ -30,6 +30,7 @@ var proxyTransport = http.Transport{
 }
 
 type MyTransport struct {
+	mode    string
 	timeout int
 }
 
@@ -39,6 +40,12 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 
 	retries := 0
 	st := time.Now()
+
+	switch t.mode {
+	case ProxyModeStoreAndForward:
+		// TODO: handle this
+	case ProxyModeBypass:
+	}
 
 	for {
 		response, err = proxyTransport.RoundTrip(request)

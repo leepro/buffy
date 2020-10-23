@@ -79,7 +79,7 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 
 		// attach the upstream
 		eh.upstream = upstream
-		if err := eh.upstream.CreateReverseProxy(epf.Timeout); err != nil {
+		if err := eh.upstream.CreateReverseProxy(epf.ProxyMode, epf.Timeout); err != nil {
 			return err
 		}
 
