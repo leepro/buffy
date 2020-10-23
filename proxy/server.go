@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -15,7 +16,8 @@ import (
 const (
 	NameHitMaxQueue = "hit_max_queue"
 	NameHitTimeout  = "hit_timeout"
-	NameOK          = "200"
+	NameOK          = "ok"
+	NameNotFound    = "not_found"
 )
 
 type ProxyServer struct {
@@ -153,13 +155,16 @@ func (ps *ProxyServer) RunNotifier() error {
 }
 
 func (ps *ProxyServer) ProxyHandle(w http.ResponseWriter, r *http.Request) {
-	log.Printf("[ProxyHandle] url=[%s]\n", r.URL)
-	ps.serveEndpoints(w, r)
-}
+	for _, e := range ps.endpoints {
+		if strings.Contains(r.URL.Path, e.Path) {
+			log.Printf("[serveEndpoints] endpoint=%s e.Path=%s request URL=[%s]\n", e.Id, e.Path, r.URL.Path)
+			e.Handler.handler(w, r)
+			return
+		}
+	}
 
-func (ps *ProxyServer) serveEndpoints(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("{ \"status\": \"not implemented\"}"))
+	w.Write([]byte("{ \"status\": \"not found (no endpoints)\"}"))
 }
 
 func (ps *ProxyServer) CreateUpstreamHandlers() error {

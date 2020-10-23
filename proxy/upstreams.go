@@ -27,12 +27,6 @@ type UpstreamDef struct {
 	Interval int    `json:"interval" yaml:"interval"`
 }
 
-type UpstreamResponseDef struct {
-	Name     string `json:"name"     yaml:"name"`
-	Content  string `json:"content"  yaml:"content"`
-	Interval string `json:"interval" yaml:"interval"`
-}
-
 type UpstreamHandler struct {
 	ctx      context.Context
 	def      *UpstreamDef
@@ -121,5 +115,6 @@ func (up *Upstream) CreateReverseProxy(timeout int) error {
 }
 
 func (up *Upstream) Forward(w http.ResponseWriter, r *http.Request) {
+	r.Header.Add("X-Buffy-Upstream-ID", up.Def.Id)
 	up.Handler.revproxy.ServeHTTP(w, r)
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -43,19 +44,22 @@ type AdminNotify struct {
 	Slack   string `json:"slack"   yaml:"slack"`
 }
 
-func (ed *EndpointDef) GetResponseWithName(name string, basepath string) (string, error) {
+func (ed *EndpointDef) GetResponseWithName(name string, basepath string) (int, string, error) {
 	for _, e := range ed.Response {
 		if e.Name == name {
 			if strings.HasPrefix(e.Content, "file://") {
 				content, err := ed.ReadContentFile(e.Content, basepath)
-				return content, err
+				if err != nil {
+					return http.StatusInternalServerError, "", err
+				}
+				return e.ReturnCode, content, err
 			} else {
-				return e.Content, nil
+				return e.ReturnCode, e.Content, nil
 			}
 		}
 	}
 
-	return "", errors.New("not found name")
+	return http.StatusInternalServerError, "", errors.New("not found name")
 }
 
 func (ed *EndpointDef) ReadContentFile(filename string, basepath string) (string, error) {

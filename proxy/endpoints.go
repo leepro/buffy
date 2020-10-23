@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -24,7 +25,13 @@ type EndpointDef struct {
 	Timeout   int                   `json:"timeout"    yaml:"timeout"`
 	MaxQueue  int                   `json:"max_queue"  yaml:"max_queue"`
 	Methods   []string              `json:"methods"    yaml:"methods"`
-	Response  []UpstreamResponseDef `json:"response"   yaml:"response"`
+	Response  []EndpointResponseDef `json:"response"   yaml:"response"`
+}
+
+type EndpointResponseDef struct {
+	Name       string `json:"name"        yaml:"name"`
+	ReturnCode int    `json:"return_code" yaml:"return_code"`
+	Content    string `json:"content"     yaml:"content"`
 }
 
 type EndpointHandler struct {
@@ -32,6 +39,7 @@ type EndpointHandler struct {
 	def      *EndpointDef
 	upstream *Upstream
 	notiC    chan string
+	handler  http.HandlerFunc
 
 	MaxConn int    `json:"maxConn"`
 	CurConn int    `json:"curConn"`
@@ -78,11 +86,12 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 		_handle = func(w http.ResponseWriter, r *http.Request) {
 			log.Printf("[endpoint(%d):%s:'%s'] %s\n", atomic.AddUint32(&eh.Counter, 1), epf.Id, epf.Desc, r.URL)
 
+			var code int
 			var content string
 			var err error
 
 			if eh.IsReachedMaxQueue() {
-				content, err = epf.GetResponseWithName(NameHitMaxQueue, cfg.BasePath)
+				code, content, err = epf.GetResponseWithName(NameHitMaxQueue, cfg.BasePath)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					w.Write([]byte("buffy[yaml]: not found a response body for code 'hit_max_queue' : " + err.Error()))
@@ -92,12 +101,17 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 				// forward the request with the replacement of hostname
 				eh.In()
 				r.Host = r.URL.Host
+				r.Header.Add("X-Buffy-URL", r.RequestURI)
+				r.Header.Add("X-Buffy-Endpoint-ID", epf.Id)
 				eh.upstream.Forward(w, r)
 				eh.Out()
 				return
 			}
 
-			w.WriteHeader(http.StatusOK)
+			// add default headers
+			eh.addHeaders(w, r, epf)
+
+			w.WriteHeader(code)
 			w.Write([]byte(content))
 		}
 
@@ -105,24 +119,43 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 		_handle = func(w http.ResponseWriter, r *http.Request) {
 			log.Printf("[endpoint(%d):%s:'%s'] %s\n", atomic.AddUint32(&eh.Counter, 1), epf.Id, epf.Desc, r.URL)
 
+			var code int
 			var content string
 			var err error
 
-			content, err = epf.GetResponseWithName(NameOK, cfg.BasePath)
+			code, content, err = epf.GetResponseWithName(NameOK, cfg.BasePath)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("buffy[yaml]: not found a response body for code 200 : " + err.Error()))
 				return
 			}
 
-			w.WriteHeader(http.StatusOK)
+			// process template
+			content = eh.processTemplate(w, r, epf, content)
+
+			// add default headers
+			eh.addHeaders(w, r, epf)
+
+			w.WriteHeader(code)
 			w.Write([]byte(content))
 		}
 	}
 
 	mux.HandleFunc(epf.Path, _handle)
+	eh.handler = _handle
 
 	return nil
+}
+
+func (eh *EndpointHandler) addHeaders(w http.ResponseWriter, r *http.Request, epf *EndpointDef) {
+	w.Header().Add("X-Buffy-URL", r.RequestURI)
+	w.Header().Add("X-Buffy-Endpoint-ID", epf.Id)
+}
+
+func (eh *EndpointHandler) processTemplate(w http.ResponseWriter, r *http.Request, epf *EndpointDef, content string) string {
+	content = strings.ReplaceAll(content, "{{URL}}", r.RequestURI)
+	content = strings.ReplaceAll(content, "{{ID}}", epf.Id)
+	return content
 }
 
 func (eh *EndpointHandler) notify(msg string) {
