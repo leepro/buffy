@@ -13,6 +13,11 @@ var (
 
 func main() {
 	flag.Parse()
+
+	if *filename == "" {
+		log.Fatal("no config yaml file specified")
+	}
+
 	cfg, err := proxy.ReadConfigFile(*filename)
 	if err != nil {
 		log.Fatalf("failed: %s\n", err)
