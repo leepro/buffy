@@ -52,6 +52,7 @@ type Endpoint struct {
 
 func ListenAndServe(cfg *BuffyConfig) (*ProxyServer, error) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx = context.WithValue(ctx, "config", cfg)
 
 	ps := &ProxyServer{
 		Cfg:            cfg,

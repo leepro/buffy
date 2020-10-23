@@ -59,6 +59,8 @@ func NewEndpoint(ctx context.Context, e EndpointDef, notiC chan string) (*Endpoi
 
 func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream) error {
 	epf := eh.def
+	cfg := eh.ctx.Value("config").(*BuffyConfig)
+
 	var _handle http.HandlerFunc
 
 	switch epf.Type {
@@ -80,7 +82,7 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 			var err error
 
 			if eh.IsReachedMaxQueue() {
-				content, err = epf.GetResponseWithName(NameHitMaxQueue)
+				content, err = epf.GetResponseWithName(NameHitMaxQueue, cfg.BasePath)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					w.Write([]byte("buffy[yaml]: not found a response body for code 'hit_max_queue' : " + err.Error()))
@@ -106,7 +108,7 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 			var content string
 			var err error
 
-			content, err = epf.GetResponseWithName(NameOK)
+			content, err = epf.GetResponseWithName(NameOK, cfg.BasePath)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("buffy[yaml]: not found a response body for code 200 : " + err.Error()))

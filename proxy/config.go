@@ -7,16 +7,19 @@ import (
 	"io/ioutil"
 	"log"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v2"
 )
 
 type BuffyConfig struct {
-	Version   string        `json:"version"   yaml:"version"`
-	Server    ServerDef     `json:"buffy"     yaml:"buffy"`
-	Upstreams []UpstreamDef `json:"upstreams" yaml:"upstreams"`
-	Endpoints []EndpointDef `json:"endpoints" yaml:"endpoints"`
+	Version        string        `json:"version"   yaml:"version"`
+	Server         ServerDef     `json:"buffy"     yaml:"buffy"`
+	Upstreams      []UpstreamDef `json:"upstreams" yaml:"upstreams"`
+	Endpoints      []EndpointDef `json:"endpoints" yaml:"endpoints"`
+	ConfigFilename string        `json:"filename"`
+	BasePath       string        `json:"basepath"`
 }
 
 type ServerDef struct {
@@ -40,11 +43,11 @@ type AdminNotify struct {
 	Slack   string `json:"slack"   yaml:"slack"`
 }
 
-func (ed *EndpointDef) GetResponseWithName(name string) (string, error) {
+func (ed *EndpointDef) GetResponseWithName(name string, basepath string) (string, error) {
 	for _, e := range ed.Response {
 		if e.Name == name {
 			if strings.HasPrefix(e.Content, "file://") {
-				content, err := ed.ReadContentFile(e.Content)
+				content, err := ed.ReadContentFile(e.Content, basepath)
 				return content, err
 			} else {
 				return e.Content, nil
@@ -55,14 +58,13 @@ func (ed *EndpointDef) GetResponseWithName(name string) (string, error) {
 	return "", errors.New("not found name")
 }
 
-func (ed *EndpointDef) ReadContentFile(filename string) (string, error) {
+func (ed *EndpointDef) ReadContentFile(filename string, basepath string) (string, error) {
 	u, err := url.ParseRequestURI(filename)
 	if err != nil {
 		return "", err
 	}
 
-	fmt.Printf("url:%v\nscheme:%v host:%v Path:%v\n\n", u, u.Scheme, u.Host, u.Path)
-	content, err := ioutil.ReadFile(u.Path)
+	content, err := ioutil.ReadFile(basepath + "/" + u.Path)
 	return string(content), err
 }
 
@@ -74,6 +76,10 @@ func ReadConfigFile(filename string) (*BuffyConfig, error) {
 
 	var t BuffyConfig
 	err = yaml.Unmarshal(bs, &t)
+
+	t.ConfigFilename, _ = filepath.Abs(filename)
+	t.BasePath = filepath.Dir(t.ConfigFilename)
+
 	return &t, err
 }
 
@@ -86,6 +92,8 @@ func (cfg *BuffyConfig) ShowInfo() {
 	log.Printf("* Buffy 1.0\n")
 	log.Println()
 	log.Printf("- version   : %s\n", cfg.Version)
+	log.Printf("- config    : %s\n", cfg.ConfigFilename)
+	log.Printf("- base      : %s\n", cfg.BasePath)
 	log.Printf("- server    : %s\n", cfg.Server.Listen.Bind)
 	log.Printf("- admin     : %s\n", cfg.Server.Admin.Bind)
 	log.Printf("- webhook   : '%s'\n", cfg.Server.Admin.Notify.Webhook)
