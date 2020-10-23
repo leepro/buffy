@@ -10,6 +10,8 @@ jobs:
     name: Building and Releasing
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: main
 
       - name: Setup go
         uses: actions/setup-go@v1
@@ -31,8 +33,9 @@ jobs:
       - name: Generating License File
         run: |
           wget https://github.com/mitchellh/golicense/releases/download/v0.2.0/golicense_0.2.0_linux_x86_64.tar.gz
-          tar xvfz ./golicense_0.2.0_linux_x86_64.tar.gz
-          GITHUB_TOKEN=${{ secrets.TOKEN }} ./golicense ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64 | uniq -c > ./license.txt
+          tar xvfz -C ./gl ./golicense_0.2.0_linux_x86_64.tar.gz
+          GITHUB_TOKEN=${{ secrets.TOKEN }} ./gl/golicense ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64 | uniq -c > ./license.txt
+          rm -rf ./gl
       - name: Updating License File
         run: |          
           git config --local user.email "leepro@gmail.com"
