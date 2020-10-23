@@ -41,7 +41,7 @@ jobs:
           git add ./license.txt
           git commit -m "[auto] add license file"
       - name: Push changes
-        uses: ad-m/github-push-action@master
+        uses: ad-m/github-push-action@main
         with:
           github_token: ${{ secrets.TOKEN }}
 
