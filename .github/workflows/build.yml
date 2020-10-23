@@ -39,6 +39,7 @@ jobs:
           rm -rf ./gl
           rm ./golicense_0.2.0_linux_x86_64.tar.gz
           echo "./release" >> ./.gitignore
+          echo ".gitignore" >> ./.gitignore
       - name: Updating License File
         run: |          
           git config --local user.email "leepro@gmail.com"
