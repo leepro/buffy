@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 )
 
 const (
@@ -42,7 +43,8 @@ func (nm *NotifyManager) run() {
 		case m := <-nm.C:
 			log.Printf("[NotifyManager] msg=%s\n", m)
 			if nm.webhook != "" {
-				res, err := http.Post(nm.webhook, "application/json", bytes.NewBufferString(m))
+				cl := &http.Client{Timeout: 500 * time.Millisecond}
+				res, err := cl.Post(nm.webhook, "application/json", bytes.NewBufferString(m))
 				if err != nil {
 					log.Printf("[NotifyManager] err=%s msg=%s\n", err, m)
 				} else {
