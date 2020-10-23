@@ -41,8 +41,8 @@ jobs:
           git config --local user.email "leepro@gmail.com"
           git config --local user.name "leepro"
           git config commit.gpgsign false
-          git add ./license.txt
-          git commit -m "[auto] add license file" && yes
+          git add ./license.txt || yes
+          git commit -m "[auto] add license file" || yes
       - name: Push changes
         uses: ad-m/github-push-action@master
         with:
