@@ -69,6 +69,7 @@ func NewEndpoint(ctx context.Context, e EndpointDef, notiC chan string) (*Endpoi
 			MaxConn:  e.MaxQueue,
 			CurConn:  0,
 			upstream: nil,
+			Conns:    make(map[string]*ConnState),
 		},
 	}
 	return ep, nil
