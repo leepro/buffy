@@ -109,7 +109,7 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	//
 
 	// not disconnected
-	if !errors.Is(err, context.Canceled) {
+	if !errors.Is(err, context.Canceled) && !errors.Is(err, io.EOF) {
 		response.Header.Add("X-Buffy-Elasped", fmt.Sprintf("%.5f sec", time.Since(st).Seconds()))
 		response.Header.Add("X-Buffy-Timeout", strconv.Itoa(t.timeout))
 		response.Header.Add("X-Buffy-Mode", t.mode)
