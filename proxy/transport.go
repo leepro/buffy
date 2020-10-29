@@ -14,10 +14,6 @@ import (
 	"time"
 )
 
-const (
-	MaxWaitBetweenTrial = 1
-)
-
 var proxyTransport = http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
@@ -33,10 +29,11 @@ var proxyTransport = http.Transport{
 }
 
 type MyTransport struct {
-	upstream       string
-	mode           string
-	timeout        int
-	upstreamStatus *int
+	upstream          string
+	mode              string
+	timeout           int
+	interval          int
+	getUpstreamStatus func() uint32
 }
 
 func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -52,8 +49,16 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	case ProxyModeBypass:
 	}
 
+	var interval time.Duration
+
+	if t.interval == 0 {
+		interval = DefaultIntervalPing
+	} else {
+		interval = time.Duration(t.interval) * time.Millisecond
+	}
+
 	for {
-		if *t.upstreamStatus == StatusAvailable {
+		if t.getUpstreamStatus() == StatusAvailable {
 			log.Printf("[MyTransport/RoundTrip/%d] upstream is available!\n", retries)
 
 			response, err = proxyTransport.RoundTrip(request)
@@ -82,7 +87,7 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 			break
 		}
 
-		time.Sleep(MaxWaitBetweenTrial * time.Second)
+		time.Sleep(interval)
 		retries++
 	}
 

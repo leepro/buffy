@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const (
-	StatusNone = iota
+	StatusNone uint32 = iota
 	StatusUnavailable
 	StatusAvailable
 )
@@ -39,7 +41,9 @@ type UpstreamHandler struct {
 	revproxy *httputil.ReverseProxy
 	notiC    chan string
 
-	Status int `json:"status"`
+	Status uint32 `json:"status"`
+
+	sync.Mutex
 }
 
 func NewUpstream(ctx context.Context, u UpstreamDef, notiC chan string) (*Upstream, error) {
@@ -81,25 +85,36 @@ func (us *UpstreamHandler) run() {
 
 			u, _ := url.Parse(us.def.Endpoint)
 			d := net.Dialer{Timeout: TimeoutTCPDialCheck}
+
 			conn, err := d.Dial("tcp", u.Host)
 			if err != nil {
-				if us.Status == StatusNone || us.Status == StatusAvailable {
+				_s := us.GetStatus()
+				if _s == StatusNone || _s == StatusAvailable {
 					log.Printf("[upstream:%s/%d] Switch to 'Unavailable'\n", us.def.Id, cnt)
 					us.notify(`{"status":"change". "desc":"upstream [` + us.def.Id + `] unavailable"}`)
 				}
-				us.Status = StatusUnavailable
+				us.UpdateStatus(StatusUnavailable)
 				continue
 			}
 			conn.Close()
 
-			if us.Status == StatusNone || us.Status == StatusUnavailable {
+			_s := us.GetStatus()
+			if _s == StatusNone || _s == StatusUnavailable {
 				log.Printf("[upstream:%s/%d] Switch to 'Available'\n", us.def.Id, cnt)
 				us.notify(`{"status":"change". "desc":"upstream [` + us.def.Id + `] available"}`)
 			}
 
-			us.Status = StatusAvailable
+			us.UpdateStatus(StatusAvailable)
 		}
 	}
+}
+
+func (us *UpstreamHandler) UpdateStatus(s uint32) {
+	atomic.StoreUint32(&us.Status, s)
+}
+
+func (us *UpstreamHandler) GetStatus() uint32 {
+	return atomic.LoadUint32(&us.Status)
 }
 
 func (us *UpstreamHandler) notify(msg string) {
@@ -122,7 +137,13 @@ func (up *Upstream) CreateReverseProxy(mode string, timeout int) error {
 	}
 
 	up.Handler.revproxy = httputil.NewSingleHostReverseProxy(upURL)
-	up.Handler.revproxy.Transport = &MyTransport{upstream: up.Id, mode: mode, timeout: timeout, upstreamStatus: &up.Handler.Status}
+	up.Handler.revproxy.Transport = &MyTransport{
+		upstream:          up.Id,
+		mode:              mode,
+		timeout:           timeout,
+		interval:          up.Def.Interval,
+		getUpstreamStatus: up.Handler.GetStatus,
+	}
 	// up.Handler.revproxy.ErrorHandler = func(http.ResponseWriter, *http.Request, error) {
 	// }
 
