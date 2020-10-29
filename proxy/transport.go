@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -65,6 +66,10 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 
 		// waiting timeout
 		if time.Since(st).Seconds() >= float64(t.timeout) {
+			buf := bytes.NewBuffer([]byte(fmt.Sprintf("timeout %d sec", t.timeout)))
+			response, err = http.ReadResponse(bufio.NewReader(buf), request)
+			response.StatusCode = http.StatusServiceUnavailable
+			response.Status = http.StatusText(response.StatusCode)
 			break
 		}
 
@@ -80,6 +85,9 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	// 	}
 	// 	err = nil
 	// }
+	//
+	//	buf, err := httputil.DumpResponse(resp, true)
+	//
 
 	// not disconnected
 	if !errors.Is(err, context.Canceled) {
