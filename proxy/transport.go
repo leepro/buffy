@@ -68,6 +68,11 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 
 			log.Printf("[MyTransport/RoundTrip/%d] err=%v\n", retries, err)
 
+			// broken (upstream shutdown)
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
 			if errors.Is(err, context.Canceled) {
 				break
 			}
