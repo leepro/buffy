@@ -2,20 +2,27 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/leepro/buffy/proxy"
 )
 
-var (
-	filename = flag.String("c", "", "config file")
-)
+var BuildVersion string
+var filename = flag.String("c", "", "config file")
+var version = flag.Bool("v", false, "versoin")
 
 func main() {
 	flag.Parse()
 
 	if *filename == "" {
 		log.Fatal("no config yaml file specified")
+	}
+
+	if *version {
+		fmt.Printf("buffy build:%s\n", BuildVersion)
+		os.Exit(0)
 	}
 
 	cfg, err := proxy.ReadConfigFile(*filename)

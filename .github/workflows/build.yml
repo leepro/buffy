@@ -24,11 +24,19 @@ jobs:
 
       - name: Building app (linux)
         run: |
-          GOARCH=amd64 GOOS=linux  go build -o ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64  main.go
+          GITHASH=`git log --format="%H" -n 1`
+          NOW=`date +'%Y%m%d_%H%M%S'`
+          GOVER=`go version | { read _ _ v _; echo ${v#go}; }`
+          OPT="-X main.BuildVersion=${NOW}_${GITHASH}_go${GOVER}"
+          GOARCH=amd64 GOOS=linux go build -ldflags "$OPT" -o ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64  main.go
           gzip --keep ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64
       - name: Building app (darwin)
         run: |
-          GOARCH=amd64 GOOS=darwin go build -o ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64 main.go
+          GITHASH=`git log --format="%H" -n 1`
+          NOW=`date +'%Y%m%d_%H%M%S'`
+          GOVER=`go version | { read _ _ v _; echo ${v#go}; }`
+          OPT="-X main.BuildVersion=${NOW}_${GITHASH}_go${GOVER}"        
+          GOARCH=amd64 GOOS=darwin go build -ldflags "$OPT" -o ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64 main.go
           gzip --keep ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64          
       - name: Generating License File
         run: |
