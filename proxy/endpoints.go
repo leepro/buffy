@@ -2,12 +2,15 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -41,11 +44,17 @@ type EndpointHandler struct {
 	notiC    chan string
 	handler  http.HandlerFunc
 
-	MaxConn int    `json:"maxConn"`
-	CurConn int    `json:"curConn"`
-	Counter uint32 `json:"counter"`
+	MaxConn int                   `json:"maxconn"`
+	CurConn int                   `json:"curconn"`
+	Counter uint32                `json:"counter"`
+	Conns   map[string]*ConnState `json:"conns"`
 
 	sync.Mutex
+}
+
+type ConnState struct {
+	RemoteAddr string `json:"remote_addr"`
+	CreatedAt  int64  `json:"created_at"`
 }
 
 func NewEndpoint(ctx context.Context, e EndpointDef, notiC chan string) (*Endpoint, error) {
@@ -99,14 +108,14 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 				}
 			} else {
 				// forward the request with the replacement of hostname
-				eh.In()
+				sid := eh.In(r)
+				// IMPORTANT
 				r.Host = r.URL.Host
-
 				r.Header.Add("X-Buffy-URL", r.RequestURI)
 				r.Header.Add("X-Buffy-Endpoint-ID", epf.Id)
 				r.Header.Add("X-Buffy-Way", "up")
 				eh.upstream.Forward(w, r)
-				eh.Out()
+				eh.Out(sid)
 				return
 			}
 
@@ -166,17 +175,52 @@ func (eh *EndpointHandler) notify(msg string) {
 	}
 }
 
-func (eh *EndpointHandler) In() {
+func (eh *EndpointHandler) In(r *http.Request) string {
 	eh.Lock()
 	defer eh.Unlock()
 
+	ts := time.Now().Unix()
+	sid := fmt.Sprintf("%x-%s", ts, r.RemoteAddr)
+	eh.Conns[sid] = &ConnState{RemoteAddr: r.RemoteAddr, CreatedAt: ts}
 	eh.CurConn++
+
+	return sid
 }
 
-func (eh *EndpointHandler) Out() {
+func (eh *EndpointHandler) MarshalJSON() ([]byte, error) {
 	eh.Lock()
 	defer eh.Unlock()
 
+	return json.Marshal(struct {
+		MaxConn int                   `json:"maxconn"`
+		CurConn int                   `json:"curconn"`
+		Counter uint32                `json:"counter"`
+		Conns   map[string]*ConnState `json:"conns"`
+	}{
+		MaxConn: eh.MaxConn,
+		CurConn: eh.CurConn,
+		Counter: eh.Counter,
+		Conns:   eh.Conns,
+	})
+}
+
+func (cs *ConnState) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		RemoteAddr string `json:"remote_addr"`
+		CreatedAt  int64  `json:"created_at"`
+		Elasped    int64  `json:"elapsed"`
+	}{
+		RemoteAddr: cs.RemoteAddr,
+		CreatedAt:  cs.CreatedAt,
+		Elasped:    time.Now().Unix() - cs.CreatedAt,
+	})
+}
+
+func (eh *EndpointHandler) Out(sid string) {
+	eh.Lock()
+	defer eh.Unlock()
+
+	delete(eh.Conns, sid)
 	eh.CurConn--
 }
 

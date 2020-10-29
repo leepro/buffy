@@ -59,8 +59,8 @@ type UpstreamHandler struct {
 	revproxy *httputil.ReverseProxy
 	notiC    chan string
 
-	UpstreamStatus uint32 `json:"status"`
-	GateState      uint32 `json:"gate"`
+	UpstreamStatus uint32 `json:"upstream_status"`
+	GateState      uint32 `json:"gate_state"`
 
 	sync.Mutex
 }
