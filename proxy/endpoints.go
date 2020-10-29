@@ -101,8 +101,10 @@ func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream)
 				// forward the request with the replacement of hostname
 				eh.In()
 				r.Host = r.URL.Host
+
 				r.Header.Add("X-Buffy-URL", r.RequestURI)
 				r.Header.Add("X-Buffy-Endpoint-ID", epf.Id)
+				r.Header.Add("X-Buffy-Way", "up")
 				eh.upstream.Forward(w, r)
 				eh.Out()
 				return

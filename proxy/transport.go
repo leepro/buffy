@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -66,10 +65,14 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 
 		// waiting timeout
 		if time.Since(st).Seconds() >= float64(t.timeout) {
-			buf := bytes.NewBuffer([]byte(fmt.Sprintf("timeout %d sec", t.timeout)))
-			response, err = http.ReadResponse(bufio.NewReader(buf), request)
-			response.StatusCode = http.StatusServiceUnavailable
-			response.Status = http.StatusText(response.StatusCode)
+			r := ioutil.NopCloser(bytes.NewReader([]byte(fmt.Sprintf("timeout %d sec", t.timeout))))
+			response = &http.Response{
+				Request:    request,
+				Header:     http.Header{},
+				StatusCode: http.StatusServiceUnavailable,
+				Status:     http.StatusText(http.StatusServiceUnavailable),
+				Body:       r,
+			}
 			break
 		}
 
