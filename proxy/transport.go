@@ -73,6 +73,7 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 				Status:     http.StatusText(http.StatusServiceUnavailable),
 				Body:       r,
 			}
+			err = nil
 			break
 		}
 
