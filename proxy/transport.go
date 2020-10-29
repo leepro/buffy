@@ -33,9 +33,10 @@ var proxyTransport = http.Transport{
 }
 
 type MyTransport struct {
-	upstream string
-	mode     string
-	timeout  int
+	upstream       string
+	mode           string
+	timeout        int
+	upstreamStatus *int
 }
 
 func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -52,15 +53,19 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	}
 
 	for {
-		response, err = proxyTransport.RoundTrip(request)
-		if err == nil {
-			break
-		}
+		if *t.upstreamStatus == StatusAvailable {
+			log.Printf("[MyTransport/RoundTrip/%d] upstream is available!\n", retries)
 
-		log.Printf("[MyTransport/RoundTrip/%d] err=%v\n", retries, err)
+			response, err = proxyTransport.RoundTrip(request)
+			if err == nil {
+				break
+			}
 
-		if errors.Is(err, context.Canceled) {
-			break
+			log.Printf("[MyTransport/RoundTrip/%d] err=%v\n", retries, err)
+
+			if errors.Is(err, context.Canceled) {
+				break
+			}
 		}
 
 		// waiting timeout

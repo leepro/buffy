@@ -122,7 +122,7 @@ func (up *Upstream) CreateReverseProxy(mode string, timeout int) error {
 	}
 
 	up.Handler.revproxy = httputil.NewSingleHostReverseProxy(upURL)
-	up.Handler.revproxy.Transport = &MyTransport{upstream: up.Id, mode: mode, timeout: timeout}
+	up.Handler.revproxy.Transport = &MyTransport{upstream: up.Id, mode: mode, timeout: timeout, upstreamStatus: &up.Handler.Status}
 	// up.Handler.revproxy.ErrorHandler = func(http.ResponseWriter, *http.Request, error) {
 	// }
 
