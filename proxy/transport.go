@@ -2,11 +2,13 @@ package proxy
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -30,8 +32,9 @@ var proxyTransport = http.Transport{
 }
 
 type MyTransport struct {
-	mode    string
-	timeout int
+	upstream string
+	mode     string
+	timeout  int
 }
 
 func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -76,6 +79,11 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	// 	}
 	// 	err = nil
 	// }
+
+	response.Header.Add("X-Buffy-Elasped", fmt.Sprintf("%.5f sec", time.Since(st).Seconds()))
+	response.Header.Add("X-Buffy-Timeout", strconv.Itoa(t.timeout))
+	response.Header.Add("X-Buffy-Mode", t.mode)
+	response.Header.Add("X-Buffy-Upstream", t.upstream)
 
 	return response, err
 }
