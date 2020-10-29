@@ -70,6 +70,15 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 
 			// broken (upstream shutdown)
 			if errors.Is(err, io.EOF) {
+				r := ioutil.NopCloser(bytes.NewReader([]byte(fmt.Sprintf("Error: EOF upstream broken"))))
+				response = &http.Response{
+					Request:    request,
+					Header:     http.Header{},
+					StatusCode: http.StatusServiceUnavailable,
+					Status:     http.StatusText(http.StatusServiceUnavailable),
+					Body:       r,
+				}
+				err = nil
 				break
 			}
 
@@ -80,7 +89,7 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 
 		// waiting timeout
 		if time.Since(st).Seconds() >= float64(t.timeout) {
-			r := ioutil.NopCloser(bytes.NewReader([]byte(fmt.Sprintf("timeout %d sec", t.timeout))))
+			r := ioutil.NopCloser(bytes.NewReader([]byte(fmt.Sprintf("Error: timeout %d sec", t.timeout))))
 			response = &http.Response{
 				Request:    request,
 				Header:     http.Header{},
@@ -109,7 +118,8 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	//
 
 	// not disconnected
-	if !errors.Is(err, context.Canceled) && !errors.Is(err, io.EOF) {
+	// if !errors.Is(err, context.Canceled) && !errors.Is(err, io.EOF) {
+	if response != nil {
 		response.Header.Add("X-Buffy-Elasped", fmt.Sprintf("%.5f sec", time.Since(st).Seconds()))
 		response.Header.Add("X-Buffy-Timeout", strconv.Itoa(t.timeout))
 		response.Header.Add("X-Buffy-Mode", t.mode)
