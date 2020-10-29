@@ -16,13 +16,13 @@ var version = flag.Bool("v", false, "versoin")
 func main() {
 	flag.Parse()
 
-	if *filename == "" {
-		log.Fatal("no config yaml file specified")
-	}
-
 	if *version {
 		fmt.Printf("buffy build:%s\n", BuildVersion)
 		os.Exit(0)
+	}
+
+	if *filename == "" {
+		log.Fatal("no config yaml file specified")
 	}
 
 	cfg, err := proxy.ReadConfigFile(*filename)
