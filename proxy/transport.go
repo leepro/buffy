@@ -34,6 +34,7 @@ type MyTransport struct {
 	timeout           int
 	interval          int
 	getUpstreamStatus func() uint32
+	getGateState      func() uint32
 }
 
 func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -58,32 +59,34 @@ func (t *MyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	}
 
 	for {
-		if t.getUpstreamStatus() == StatusAvailable {
-			log.Printf("[MyTransport/RoundTrip/%d] upstream is available!\n", retries)
+		if t.getGateState() == GateOpened {
+			if t.getUpstreamStatus() == StatusAvailable {
+				log.Printf("[MyTransport/RoundTrip/%d] upstream is available!\n", retries)
 
-			response, err = proxyTransport.RoundTrip(request)
-			if err == nil {
-				break
-			}
-
-			log.Printf("[MyTransport/RoundTrip/%d] err=%v\n", retries, err)
-
-			// broken (upstream shutdown)
-			if errors.Is(err, io.EOF) {
-				r := ioutil.NopCloser(bytes.NewReader([]byte(fmt.Sprintf("Error: EOF upstream broken"))))
-				response = &http.Response{
-					Request:    request,
-					Header:     http.Header{},
-					StatusCode: http.StatusServiceUnavailable,
-					Status:     http.StatusText(http.StatusServiceUnavailable),
-					Body:       r,
+				response, err = proxyTransport.RoundTrip(request)
+				if err == nil {
+					break
 				}
-				err = nil
-				break
-			}
 
-			if errors.Is(err, context.Canceled) {
-				break
+				log.Printf("[MyTransport/RoundTrip/%d] err=%v\n", retries, err)
+
+				// broken (upstream shutdown)
+				if errors.Is(err, io.EOF) {
+					r := ioutil.NopCloser(bytes.NewReader([]byte(fmt.Sprintf("Error: EOF upstream broken"))))
+					response = &http.Response{
+						Request:    request,
+						Header:     http.Header{},
+						StatusCode: http.StatusServiceUnavailable,
+						Status:     http.StatusText(http.StatusServiceUnavailable),
+						Body:       r,
+					}
+					err = nil
+					break
+				}
+
+				if errors.Is(err, context.Canceled) {
+					break
+				}
 			}
 		}
 

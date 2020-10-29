@@ -16,10 +16,28 @@ upstreams:
   - id: service1
     endpoint: http://localhost:9091
     interval: 2000 # msec
+    autogate:
+      uri: http://localhost:9091/_ping
+      matches:
+        - id: match1
+          type: json
+          if: status="*ok*" && num=10
+          then: OPEN
+        - id: match2
+          type: json
+          if: status="*error*"
+          then: CLOSE          
 
   - id: service2
     endpoint: http://localhost:9092
     interval: 2000 # msec
+    autogate:
+      uri: http://localhost:9092/api/status
+      matches:
+        - id: match1
+          type: json
+          if: status="*ok*" && num=10
+          then: OPEN
 
 endpoints:
   - id: example1

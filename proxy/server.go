@@ -122,6 +122,7 @@ func (ps *ProxyServer) RunAdmin() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc(ps.Cfg.Server.Admin.Path+"/config", ps.AdminHandleConfig)
 	mux.HandleFunc(ps.Cfg.Server.Admin.Path+"/status", ps.AdminHandleStatus)
+	mux.HandleFunc(ps.Cfg.Server.Admin.Path+"/gate", ps.AdminHandleGate)
 
 	srv := &http.Server{
 		Addr:    ps.AdminBindAddr,
@@ -189,6 +190,7 @@ func (ps *ProxyServer) LookupUpstreamWithIds(ids []string) (*Upstream, error) {
 			return u, nil
 		}
 	}
+
 	return nil, errors.New("not found upstream with id: " + ids[0])
 }
 

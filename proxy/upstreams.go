@@ -20,6 +20,11 @@ const (
 )
 
 const (
+	GateClosed uint32 = iota
+	GateOpened
+)
+
+const (
 	DefaultIntervalPing = 2 * time.Second
 	TimeoutTCPDialCheck = 1 * time.Second
 )
@@ -30,9 +35,22 @@ const (
 )
 
 type UpstreamDef struct {
-	Id       string `json:"id"       yaml:"id"`
-	Endpoint string `json:"endpoint" yaml:"endpoint"`
-	Interval int    `json:"interval" yaml:"interval"`
+	Id       string      `json:"id"       yaml:"id"`
+	Endpoint string      `json:"endpoint" yaml:"endpoint"`
+	Interval int         `json:"interval" yaml:"interval"`
+	Autogate AutogateDef `json:"autogate" yaml:"autogate"`
+}
+
+type AutogateDef struct {
+	Uri     string     `json:"uri"     yaml:"uri"`
+	Matches []MatchDef `json:"matches" yaml:"matches"`
+}
+
+type MatchDef struct {
+	Id   string `json:"id"   yaml:"id"`
+	Type string `json:"type" yaml:"type"`
+	If   string `json:"if"   yaml:"if"`
+	Then string `json:"then" yaml:"then"`
 }
 
 type UpstreamHandler struct {
@@ -41,7 +59,8 @@ type UpstreamHandler struct {
 	revproxy *httputil.ReverseProxy
 	notiC    chan string
 
-	Status uint32 `json:"status"`
+	UpstreamStatus uint32 `json:"status"`
+	GateState      uint32 `json:"gate"`
 
 	sync.Mutex
 }
@@ -52,16 +71,27 @@ func NewUpstream(ctx context.Context, u UpstreamDef, notiC chan string) (*Upstre
 		Endpoint: u.Endpoint,
 		Def:      &u,
 		Handler: &UpstreamHandler{
-			ctx:    ctx,
-			notiC:  notiC,
-			def:    &u,
-			Status: StatusNone,
+			ctx:            ctx,
+			notiC:          notiC,
+			def:            &u,
+			UpstreamStatus: StatusNone,
+			GateState:      GateOpened,
 		},
 	}
 
 	go up.Handler.run()
 
 	return up, nil
+}
+
+func (us *Upstream) Opengate() error {
+	us.Handler.UpdateGate(GateOpened)
+	return nil
+}
+
+func (us *Upstream) Closegate() error {
+	us.Handler.UpdateGate(GateClosed)
+	return nil
 }
 
 func (us *UpstreamHandler) run() {
@@ -88,33 +118,41 @@ func (us *UpstreamHandler) run() {
 
 			conn, err := d.Dial("tcp", u.Host)
 			if err != nil {
-				_s := us.GetStatus()
+				_s := us.GetUpstreamStatus()
 				if _s == StatusNone || _s == StatusAvailable {
 					log.Printf("[upstream:%s/%d] Switch to 'Unavailable'\n", us.def.Id, cnt)
 					us.notify(`{"status":"change". "desc":"upstream [` + us.def.Id + `] unavailable"}`)
 				}
-				us.UpdateStatus(StatusUnavailable)
+				us.UpdateUpstreamStatus(StatusUnavailable)
 				continue
 			}
 			conn.Close()
 
-			_s := us.GetStatus()
+			_s := us.GetUpstreamStatus()
 			if _s == StatusNone || _s == StatusUnavailable {
 				log.Printf("[upstream:%s/%d] Switch to 'Available'\n", us.def.Id, cnt)
 				us.notify(`{"status":"change". "desc":"upstream [` + us.def.Id + `] available"}`)
 			}
 
-			us.UpdateStatus(StatusAvailable)
+			us.UpdateUpstreamStatus(StatusAvailable)
 		}
 	}
 }
 
-func (us *UpstreamHandler) UpdateStatus(s uint32) {
-	atomic.StoreUint32(&us.Status, s)
+func (us *UpstreamHandler) UpdateUpstreamStatus(s uint32) {
+	atomic.StoreUint32(&us.UpstreamStatus, s)
 }
 
-func (us *UpstreamHandler) GetStatus() uint32 {
-	return atomic.LoadUint32(&us.Status)
+func (us *UpstreamHandler) UpdateGate(g uint32) {
+	atomic.StoreUint32(&us.GateState, g)
+}
+
+func (us *UpstreamHandler) GetUpstreamStatus() uint32 {
+	return atomic.LoadUint32(&us.UpstreamStatus)
+}
+
+func (us *UpstreamHandler) GetGateState() uint32 {
+	return atomic.LoadUint32(&us.GateState)
 }
 
 func (us *UpstreamHandler) notify(msg string) {
@@ -142,7 +180,8 @@ func (up *Upstream) CreateReverseProxy(mode string, timeout int) error {
 		mode:              mode,
 		timeout:           timeout,
 		interval:          up.Def.Interval,
-		getUpstreamStatus: up.Handler.GetStatus,
+		getUpstreamStatus: up.Handler.GetUpstreamStatus,
+		getGateState:      up.Handler.GetGateState,
 	}
 	// up.Handler.revproxy.ErrorHandler = func(http.ResponseWriter, *http.Request, error) {
 	// }
