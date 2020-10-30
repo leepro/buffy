@@ -3,7 +3,6 @@ package proxy
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 )
 
 const (
@@ -36,16 +35,14 @@ func (ps *ProxyServer) AdminHandleStatus(w http.ResponseWriter, r *http.Request)
 func (ps *ProxyServer) AdminHandleGate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
-	path := strings.Replace(r.URL.Path, ps.Cfg.Server.Admin.Path+"/gate/", "", 1)
-	params := strings.Split(path, "/")
-	if len(params) != 2 {
+	upstreamId := r.URL.Query().Get("upstream")
+	action := r.URL.Query().Get("action")
+
+	if upstreamId != "" || action != "" {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid path"))
+		w.Write([]byte("invalid parameters"))
 		return
 	}
-
-	upstreamId := params[0]
-	action := params[1]
 
 	ps.Lock()
 	defer ps.Unlock()
