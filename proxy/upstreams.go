@@ -20,7 +20,7 @@ const (
 )
 
 const (
-	GateClosed uint32 = iota
+	GateClosed uint32 = iota + 1
 	GateOpened
 )
 
