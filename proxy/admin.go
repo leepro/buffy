@@ -38,7 +38,7 @@ func (ps *ProxyServer) AdminHandleGate(w http.ResponseWriter, r *http.Request) {
 	upstreamId := r.URL.Query().Get("upstream")
 	action := r.URL.Query().Get("action")
 
-	if upstreamId != "" || action != "" {
+	if upstreamId == "" || action == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid parameters"))
 		return
