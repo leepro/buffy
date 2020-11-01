@@ -102,6 +102,7 @@ func (cfg *BuffyConfig) ShowInfo() {
 	log.Printf("- admin     : %s:%d\n", cfg.Server.Admin.Bind, cfg.Server.Admin.Port)
 	log.Printf("- webhook   : '%s'\n", cfg.Server.Admin.Notify.Webhook)
 	log.Printf("- slack     : '%s'\n", cfg.Server.Admin.Notify.Slack)
+
 	log.Printf("- upstreams : %d\n", len(cfg.Upstreams))
 	for _, up := range cfg.Upstreams {
 		log.Printf("  - %s: %s\n", up.Id, up.Endpoint)
@@ -109,7 +110,7 @@ func (cfg *BuffyConfig) ShowInfo() {
 
 	log.Printf("- endpoints : %d\n", len(cfg.Endpoints))
 	for _, ep := range cfg.Endpoints {
-		log.Printf("  - %s: %s\n", ep.Id, ep.Path)
+		log.Printf("  - %s: %s timeout:%d queue:%d mode:%s\n", ep.Id, ep.Path, ep.Timeout, ep.MaxQueue, ep.ProxyMode)
 	}
 
 	log.Println()
