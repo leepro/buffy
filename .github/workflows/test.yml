@@ -1,0 +1,35 @@
+name: Building Buffy
+
+on:
+  push:
+    branches:
+      - main 
+  pull_request:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    name: Building and Releasing
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: main
+
+      - name: Setup go
+        uses: actions/setup-go@v1
+        with:
+          go-version: '1.17.2'
+
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)          
+
+      - name: Testing
+        run: |
+          go test -v ./...
+
+      - name: Building app (linux)
+        run: |
+          go build main.go
+
