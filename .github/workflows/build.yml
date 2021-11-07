@@ -1,4 +1,4 @@
-name: Building Buffy
+name: Releasing Buffy
 
 on:
   push:
