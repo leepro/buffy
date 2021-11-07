@@ -1,4 +1,4 @@
-name: Building Buffy
+name: Testing Buffy
 
 on:
   push:
