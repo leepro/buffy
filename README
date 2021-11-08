@@ -15,4 +15,5 @@ Buffy: a backend proxy for CI/CD as a buffer
   * dev branch -> PR -> Approve -> Release (update license file)
 
 * Creator
-  * DongWoo Lee
+  * Kevin D. Lee
+
