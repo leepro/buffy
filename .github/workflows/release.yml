@@ -40,6 +40,7 @@ jobs:
           OPT="-X main.BuildVersion=${NOW}_${GITHASH}_go${GOVER}"
           GOARCH=amd64 GOOS=linux go build -ldflags "$OPT" -o ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64  main.go
           gzip --keep ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64
+
       - name: Building app (darwin)
         run: |
           GITHASH=`git log --format="%H" -n 1`
@@ -48,12 +49,14 @@ jobs:
           OPT="-X main.BuildVersion=${NOW}_${GITHASH}_go${GOVER}"        
           GOARCH=amd64 GOOS=darwin go build -ldflags "$OPT" -o ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64 main.go
           gzip --keep ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64          
+
       - name: Generating License File
         run: |
           wget -q https://github.com/mitchellh/golicense/releases/download/v0.2.0/golicense_0.2.0_linux_x86_64.tar.gz
           mkdir ./gl
           tar xvfz ./golicense_0.2.0_linux_x86_64.tar.gz -C ./gl
           GITHUB_TOKEN=${{ secrets.TOKEN }} ./gl/golicense ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64 | uniq -c > ./license.txt
+
       - name: Updating License File
         run: |          
           git config --local user.email "leepro@gmail.com"
@@ -61,11 +64,13 @@ jobs:
           git config commit.gpgsign false
           git add ./license.txt || echo "ok"
           git commit -m "[auto] add license file" || echo "ok"
+
       - name: Push changes
         uses: ad-m/github-push-action@master
         with:
           branch: main
           github_token: ${{ secrets.TOKEN }}
+          force: true
 
       - name: Create Release
         id: create_release
