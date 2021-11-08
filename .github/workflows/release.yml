@@ -62,7 +62,7 @@ jobs:
           git config --local user.email "leepro@gmail.com"
           git config --local user.name "leepro"
           git config commit.gpgsign false
-          git pull
+          git fetch --all
           git add ./license.txt || echo "ok"
           git commit -m "[auto] add license file" || echo "ok"
 
