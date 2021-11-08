@@ -1,12 +1,12 @@
 name: Testing Buffy
 
 on:
-  # push:
-  #   branches:
-  #     - dev* 
+  push:
+    tags:
+      - 'v*'
   pull_request:
     branches:
-      - dev*
+      - main
 jobs:
   build:
     runs-on: ubuntu-18.04
