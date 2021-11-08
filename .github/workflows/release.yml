@@ -55,19 +55,19 @@ jobs:
           tar xvfz ./golicense_0.2.0_linux_x86_64.tar.gz -C ./gl
           GITHUB_TOKEN=${{ secrets.TOKEN }} ./gl/golicense ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64 | uniq -c > ./license.txt
 
-      # - name: Updating License File
-      #   run: |          
-      #     git config --local user.email "leepro@gmail.com"
-      #     git config --local user.name "leepro"
-      #     git config commit.gpgsign false
-      #     git add ./license.txt || echo "ok"
-      #     git commit -m "[auto] add license file" || echo "ok"
+      - name: Updating License File
+        run: |          
+          git config --local user.email "leepro@gmail.com"
+          git config --local user.name "leepro"
+          git config commit.gpgsign false
+          git add ./license.txt || echo "ok"
+          git commit -m "[auto] add license file" || echo "ok"
 
-      # - name: Push changes
-      #   uses: ad-m/github-push-action@master
-      #   with:
-      #     branch: main
-      #     github_token: ${{ secrets.TOKEN }}
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          branch: main
+          github_token: ${{ secrets.TOKEN }}
 
       - name: Create Release
         id: create_release
@@ -75,7 +75,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          # tag_name: ${{ github.ref }}
           release_name: Release ${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
