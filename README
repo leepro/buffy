@@ -12,7 +12,7 @@ Buffy: a backend proxy for CI/CD as a buffer
   * Endpoints
 
 * CI/CD
-  * dev branch -> PR -> Approve -> Release
+  * dev branch -> PR -> Approve -> Release (update license file)
 
 * Creator
   * DongWoo Lee
