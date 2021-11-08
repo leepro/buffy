@@ -1,7 +1,7 @@
 name: Releasing Buffy
 
 on:
-  pull_request:
+  push:
     branches:
       - main  
     # types: [closed]
@@ -9,9 +9,10 @@ on:
     #   - main  
     # tags:
     #   - 'v*'
+
 jobs:
   build:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    # if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
     runs-on: ubuntu-18.04
     name: Building and Releasing
     steps:
