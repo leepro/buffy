@@ -10,18 +10,18 @@ Buffy: a backend proxy for CI/CD as a buffer
   * Listeners
   
   ```
-buffy:
-  listen:
-    port: 7000
-    bind: 0.0.0.0
-  admin:
-    path: /_admin
-    port: 7001
-    bind: 0.0.0.0
-    notify:
-      webhook: http://localhost:6666
-      slack:
-```
+  buffy:
+    listen:
+      port: 7000
+      bind: 0.0.0.0
+    admin:
+      path: /_admin
+      port: 7001
+      bind: 0.0.0.0
+      notify:
+        webhook: http://localhost:6666
+        slack:
+  ```
  
   * Upstreams
   * Endpoints
