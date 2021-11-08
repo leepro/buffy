@@ -18,5 +18,4 @@ Buffy: a backend proxy for CI/CD as a buffer
   * Kevin Lee
 
 * TODO
-  * fix the failure when pushing a updated license to repo
 
