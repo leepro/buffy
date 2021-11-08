@@ -1,3 +1,5 @@
+![Buffy image](https://github.com/leepro/buffy/blob/main/assets/buffy.png?raw=true)
+
 Buffy: a backend proxy for CI/CD as a buffer
 
 * Features
