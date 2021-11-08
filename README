@@ -9,7 +9,7 @@ Buffy: a backend proxy for CI/CD as a buffer
 * Building blocks
   * Listeners
   
-  ```
+{{{
 buffy:
   listen:
     port: 7000
@@ -21,7 +21,7 @@ buffy:
     notify:
       webhook: http://localhost:6666
       slack:
-```
+}}}
  
   * Upstreams
   * Endpoints
