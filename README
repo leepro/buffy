@@ -11,3 +11,5 @@ Buffy: a backend proxy for CI/CD as a buffer
   * Upstreams
   * Endpoints
 
+* CI/CD
+  * dev branch -> PR -> Approve -> Release
