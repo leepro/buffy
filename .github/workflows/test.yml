@@ -3,10 +3,7 @@ name: Testing Buffy
 on:
   push:
     branches:
-      - main 
-  pull_request:
-    branches:
-      - main
+      - dev*
 jobs:
   build:
     runs-on: ubuntu-18.04

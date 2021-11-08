@@ -1,17 +1,20 @@
 name: Releasing Buffy
 
 on:
-  push:
-    tags:
-      - 'v*'
   pull_request:
+    types: [closed]
     branches:
-      - main
+      - main  
+    # tags:
+    #   - 'v*'
 jobs:
   build:
     runs-on: ubuntu-18.04
     name: Building and Releasing
     steps:
+      # - name: pull request
+      #   if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+
       - uses: actions/checkout@v2
         with:
           ref: main
@@ -24,6 +27,10 @@ jobs:
       - name: Get the version
         id: get_version
         run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)          
+
+      - name: Testing
+        run: |
+          go test -v ./...
 
       - name: Building app (linux)
         run: |
