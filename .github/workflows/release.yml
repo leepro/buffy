@@ -68,8 +68,8 @@ jobs:
       - name: Push changes
         uses: ad-m/github-push-action@master
         with:
-          branch: main
           github_token: ${{ secrets.TOKEN }}
+          branch: ${{ github.ref }}
 
       - name: Create Release
         id: create_release
