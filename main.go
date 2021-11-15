@@ -9,9 +9,11 @@ import (
 	"github.com/leepro/buffy/proxy"
 )
 
-var BuildVersion string
-
 var (
+	// built-in
+	BuildVersion string
+
+	// arguments
 	filename = flag.String("c", "", "config file")
 	version  = flag.Bool("v", false, "versoin")
 )
