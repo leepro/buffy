@@ -9,9 +9,14 @@ import (
 	"github.com/leepro/buffy/proxy"
 )
 
-var BuildVersion string
-var filename = flag.String("c", "", "config file")
-var version = flag.Bool("v", false, "versoin")
+var (
+	// built-in
+	BuildVersion string
+
+	// arguments
+	filename = flag.String("c", "", "config file")
+	version  = flag.Bool("v", false, "versoin")
+)
 
 func main() {
 	flag.Parse()
