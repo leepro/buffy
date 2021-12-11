@@ -127,6 +127,12 @@ Buffy: a backend proxy for CI/CD as a buffer
             content: file:///file.json
     ```
 
+* Installations
+  * Standalone
+  * Docker
+  * Kubernetes
+    * Helm chart
+
 * Plugins
   * Streaming
   * Data Serving
