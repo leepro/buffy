@@ -8,6 +8,16 @@ Buffy: a backend proxy for CI/CD as a buffer
   * Add webhook on connections for a listener
   * Add proxies (upstreams)
 
+* Installations
+  * Standalone
+  * Docker
+  * Kubernetes
+    * Helm chart
+
+* Plugins
+  * Streaming
+  * Data Serving
+  
 * Building blocks
   * Listeners
   
@@ -132,3 +142,4 @@ Buffy: a backend proxy for CI/CD as a buffer
 
 * Maintainer
   * Kevin Lee
+
