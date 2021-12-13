@@ -2,6 +2,8 @@
 <img src="https://github.com/leepro/buffy/blob/main/assets/buffy_1.png?raw=true" height=200>
 <img src="https://github.com/leepro/buffy/blob/main/assets/buffy_2.png?raw=true" height=200>
 
+Logo Credit: Sophia
+
 Buffy: a backend proxy for CI/CD as a buffer
 
 * Features
