@@ -223,10 +223,14 @@ func (ps *ProxyServer) Wait() {
 	log.Printf("Ready... server: %s\n", ps.Cfg.ServerListenHostPort())
 	log.Printf("Ready...  admin: %s\n", ps.Cfg.AdminListenHostPort())
 
-	<-sigs
-	ps.ctxCancel()
+	select {
+	case <-sigs:
+		ps.ctxCancel()
+		break
+	case <-ps.ctx.Done():
+		break
+	}
 
 	time.Sleep(2 * time.Second)
-
 	log.Printf("Bye...\n")
 }
