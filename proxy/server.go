@@ -102,10 +102,8 @@ func (ps *ProxyServer) RunServer() error {
 		Handler: ps.mux,
 	}
 
-	ctx, cancel := context.WithCancel(ps.ctx)
-
 	go func() {
-		<-ctx.Done()
+		<-ps.ctx.Done()
 
 		if err := srv.Shutdown(ps.ctx); err != nil {
 			log.Printf("[RunServer] shutdown: err=%s\n", err)
@@ -116,7 +114,7 @@ func (ps *ProxyServer) RunServer() error {
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
 			log.Printf("[RunServer] ListenAndServe: err=%s\n", err)
-			cancel()
+			ps.ctxCancel()
 		}
 	}()
 
@@ -134,10 +132,8 @@ func (ps *ProxyServer) RunAdmin() error {
 		Handler: mux,
 	}
 
-	ctx, cancel := context.WithCancel(ps.ctx)
-
 	go func() {
-		<-ctx.Done()
+		<-ps.ctx.Done()
 
 		if err := srv.Shutdown(ps.ctx); err != nil {
 			log.Printf("[AdminServer] shutdown: err=%s\n", err)
@@ -148,7 +144,7 @@ func (ps *ProxyServer) RunAdmin() error {
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
 			log.Printf("[AdminServer] ListenAndServe: err=%s\n", err)
-			cancel()
+			ps.ctxCancel()
 		}
 	}()
 
