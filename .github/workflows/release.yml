@@ -93,7 +93,7 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./release/buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64
           asset_name: buffy.${{ steps.get_version.outputs.VERSION }}.darwin.amd64.gzip
-          asset_content_type: application/zip        
+          asset_content_type: application/zip
 
       - name: Upload Release Asset 2
         id: upload-release-asset2 
@@ -104,7 +104,7 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./release/buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64
           asset_name: buffy.${{ steps.get_version.outputs.VERSION }}.linux.amd64.gzip
-          asset_content_type: application/zip        
+          asset_content_type: application/zip
 
       - name: Upload Release Asset 3
         id: upload-release-asset3 
@@ -115,4 +115,4 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./license.txt
           asset_name: license.txt
-          asset_content_type: application/zip           
+          asset_content_type: application/zip
