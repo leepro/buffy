@@ -77,7 +77,7 @@ func NewEndpoint(ctx context.Context, e EndpointDef, notiC chan string) (*Endpoi
 
 func (eh *EndpointHandler) RegisterRoute(mux *http.ServeMux, upstream *Upstream) error {
 	epf := eh.def
-	cfg := eh.ctx.Value("config").(*BuffyConfig)
+	cfg := eh.ctx.Value(ctxKeyConfig).(*BuffyConfig)
 
 	var _handle http.HandlerFunc
 

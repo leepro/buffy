@@ -52,9 +52,13 @@ type Endpoint struct {
 	Handler *EndpointHandler `json:"handler"`
 }
 
+type CtxKeyConfig struct{}
+
+var ctxKeyConfig CtxKeyConfig
+
 func ListenAndServe(cfg *BuffyConfig) (*ProxyServer, error) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "config", cfg)
+	ctx = context.WithValue(ctx, ctxKeyConfig, cfg)
 
 	ps := &ProxyServer{
 		Cfg:            cfg,
@@ -99,19 +103,18 @@ func (ps *ProxyServer) RunServer() error {
 	}
 
 	go func() {
-		select {
-		case <-ps.ctx.Done():
-		}
+		<-ps.ctx.Done()
 
 		if err := srv.Shutdown(ps.ctx); err != nil {
-			log.Printf("ProxyServer shutdown: err=%s\n", err)
+			log.Printf("[RunServer] shutdown: err=%s\n", err)
 			return
 		}
 	}()
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Printf("ProxyServer shutdown: err=%s\n", err)
+			log.Printf("[RunServer] ListenAndServe: err=%s\n", err)
+			ps.ctxCancel()
 		}
 	}()
 
@@ -130,19 +133,18 @@ func (ps *ProxyServer) RunAdmin() error {
 	}
 
 	go func() {
-		select {
-		case <-ps.ctx.Done():
-		}
+		<-ps.ctx.Done()
 
 		if err := srv.Shutdown(ps.ctx); err != nil {
-			log.Printf("ProxyServer shutdown: err=%s\n", err)
+			log.Printf("[AdminServer] shutdown: err=%s\n", err)
 			return
 		}
 	}()
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Printf("ProxyServer shutdown: err=%s\n", err)
+			log.Printf("[AdminServer] ListenAndServe: err=%s\n", err)
+			ps.ctxCancel()
 		}
 	}()
 
@@ -224,9 +226,11 @@ func (ps *ProxyServer) Wait() {
 	select {
 	case <-sigs:
 		ps.ctxCancel()
+		break
+	case <-ps.ctx.Done():
+		break
 	}
 
 	time.Sleep(2 * time.Second)
-
 	log.Printf("Bye...\n")
 }
